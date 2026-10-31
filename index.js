@@ -1,6 +1,6 @@
 import { extension_settings } from '../../../extensions.js';
 
-// 注入白色 DC 主题 CSS（含悬浮按钮样式）
+// 注入白色 DC 主题 CSS
 const dcLightStyles = `
     .dc-modal-mask {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -30,8 +30,6 @@ const dcLightStyles = `
     .dc-btn-primary { flex: 1; background: #5865f2; color: #fff; border: none; padding: 8px; border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer; }
     .dc-btn-primary:hover { background: #4752c4; }
     .dc-btn-secondary { background: #e3e5e8; color: #4f545c; border: none; padding: 8px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; }
-
-    /* 悬浮小按钮样式 */
     .whisper-float-btn {
         position: fixed; bottom: 80px; right: 20px; width: 48px; height: 48px;
         background: #5865f2; color: #ffffff; border-radius: 50%; box-shadow: 0 4px 12px rgba(88,101,242,0.4);
@@ -54,7 +52,7 @@ function parseDCText(rawText) {
     return info;
 }
 
-// 显示弹窗函数
+// 唤醒弹窗函数
 window.showWhisperCard = function(cardName, defaultText) {
     const parsed = parseDCText(defaultText);
     const modalHtml = `
@@ -79,7 +77,7 @@ window.showWhisperCard = function(cardName, defaultText) {
                 </div>
                 <div class="dc-footer">
                     <button class="dc-btn-secondary" id="dcCloseBtn">关闭</button>
-                    <button class="dc-btn-primary" id="dcEnterBtn">确认</button>
+                    <button class="dc-btn-primary" id="dcSaveBtn">💾 同步保存到角色</button>
                 </div>
             </div>
         </div>
@@ -106,37 +104,62 @@ window.showWhisperCard = function(cardName, defaultText) {
     };
 
     document.getElementById('dcCloseBtn').onclick = () => mask.remove();
-    document.getElementById('dcEnterBtn').onclick = () => mask.remove();
+    
+    // 点击保存按钮：将整理好的内容同步写入酒馆角色的简介中
+    document.getElementById('dcSaveBtn').onclick = () => {
+        const author = document.getElementById('valAuthor').innerText;
+        const orient = document.getElementById('valOrient').innerText;
+        const model = document.getElementById('valModel').innerText;
+        const preset = document.getElementById('valPreset').innerText;
+        const content = document.getElementById('valContent').innerText;
+
+        const formattedNewDesc = `作者：${author}\n性向：${orient}\n模型：${model}\n预设：${preset}\n---------\n${content}`;
+
+        // 尝试更新当前选中角色的数据
+        if (window.characters && window.selected_chid !== undefined && window.characters[window.selected_chid]) {
+            window.characters[window.selected_chid].description = formattedNewDesc;
+            toastr.success("已成功同步保存到当前角色档案！");
+        } else {
+            // 兼容备用方案：复制到剪贴板
+            navigator.clipboard.writeText(formattedNewDesc).then(() => {
+                alert("已复制规范排版到剪贴板！可直接粘贴到角色简介中。");
+            });
+        }
+        mask.remove();
+    };
 };
 
-// 挂载样式与悬浮按钮
+// 挂载悬浮球
 jQuery(() => {
-    const styleEl = document.createElement('style');
-    styleEl.innerHTML = dcLightStyles;
-    document.head.appendChild(styleEl);
-
-    // 如果页面上还没有悬浮按钮，创建一个
     if (!document.getElementById('whisperFloatBtn')) {
+        const styleEl = document.createElement('style');
+        styleEl.innerHTML = dcLightStyles;
+        document.head.appendChild(styleEl);
+
         const floatBtn = document.createElement('div');
         floatBtn.id = 'whisperFloatBtn';
         floatBtn.className = 'whisper-float-btn';
         floatBtn.innerHTML = '💬';
-        floatBtn.title = '打开 WhisperCard 卡片解析面板';
+        floatBtn.title = '打开 WhisperCard 解析面板';
         
-        // 点击悬浮按钮时，直接弹出面板（支持读取当前选中的角色信息，如果没有就弹默认测试）
         floatBtn.onclick = () => {
             let currentName = "当前角色卡";
-            let currentDesc = "作者：示例作者\n模型：Claude 3.5\n预设：默认预设\n-----\n这里是自动提取的正文介绍内容，支持一键粘贴重置！";
+            let currentDesc = "";
             
-            // 尝试智能获取酒馆当前聊天的角色名
-            const activeCharName = $('.char_name_display').text() || $('#selected_character_name').text();
-            if (activeCharName) currentName = activeCharName.trim();
+            // 尝试安全读取当前酒馆聊天的角色信息
+            if (window.characters && window.selected_chid !== undefined && window.characters[window.selected_chid]) {
+                const char = window.characters[window.selected_chid];
+                currentName = char.name || currentName;
+                currentDesc = char.description || char.first_mes || "";
+            } else {
+                currentName = $('.char_name_display').text().trim() || "角色卡";
+                currentDesc = "作者：未知\n模型：通用\n-----\n点击右上方可粘贴原案进行智能解析。";
+            }
 
             window.showWhisperCard(currentName, currentDesc);
         };
 
         document.body.appendChild(floatBtn);
     }
-
-    console.log("[tt-WhisperCard] 悬浮球唤醒模式已就绪！");
+    console.log("[tt-WhisperCard] 完整带保存功能的版本已就绪！");
 });
