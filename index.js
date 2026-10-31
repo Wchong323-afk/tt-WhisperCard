@@ -30,16 +30,9 @@ const dcLightStyles = `
     .dc-btn-primary { flex: 1; background: #5865f2; color: #fff; border: none; padding: 8px; border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer; }
     .dc-btn-primary:hover { background: #4752c4; }
     .dc-btn-secondary { background: #e3e5e8; color: #4f545c; border: none; padding: 8px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; }
-    .whisper-float-btn {
-        position: fixed; bottom: 80px; right: 20px; width: 48px; height: 48px;
-        background: #5865f2; color: #ffffff; border-radius: 50%; box-shadow: 0 4px 12px rgba(88,101,242,0.4);
-        z-index: 9998; display: flex; align-items: center; justify-content: center; font-size: 20px;
-        cursor: pointer; border: 2px solid #ffffff; transition: transform 0.2s;
-    }
-    .whisper-float-btn:active { transform: scale(0.9); }
 `;
 
-// 智能解析文本逻辑
+// 智能解析逻辑
 function parseDCText(rawText) {
     const info = { author: '未知', orientation: '全向', model: '通用', preset: '无', content: rawText };
     if (!rawText) return info;
@@ -52,20 +45,32 @@ function parseDCText(rawText) {
     return info;
 }
 
-// 唤醒弹窗函数
-window.showWhisperCard = function(cardName, defaultText) {
-    const parsed = parseDCText(defaultText);
+// 打开持久化面板
+window.openWhisperCardPanel = function() {
+    let charName = $('.char_name_display').text().trim() || "当前角色";
+    const storageKey = `whisper_card_data_${charName}`;
+    
+    // 尝试读取本地已经存储的数据，如果没有则用默认的
+    let savedData = localStorage.getItem(storageKey);
+    let parsed;
+    
+    if (savedData) {
+        parsed = JSON.parse(savedData);
+    } else {
+        parsed = parseDCText("作者：未知\n性向：全向\n模型：通用\n预设：无\n-----\n点击右上角「粘贴DC原案」开始解析并永久存储！");
+    }
+
     const modalHtml = `
         <div class="dc-modal-mask" id="dcModalMask">
             <div class="dc-card-container">
                 <div class="dc-header">
-                    <h3>💬 ${cardName || 'WhisperCard'}</h3>
+                    <h3>💬 ${charName} - 轻语档案</h3>
                     <button class="dc-btn-parse" id="toggleParseBtn">📋 粘贴DC原案</button>
                 </div>
                 <div class="dc-body">
-                    <div class="dc-parse-box" id="parseBox">
+                    <div class="dc-parse-box" id="parseBox" style="display:none;">
                         <textarea id="rawInput" placeholder="在此粘贴作者发布的原案文案..."></textarea>
-                        <button class="dc-btn-primary" style="padding: 4px; font-size: 12px;" id="applyParseBtn">应用解析</button>
+                        <button class="dc-btn-primary" style="padding: 4px; font-size: 12px;" id="applyParseBtn">立即解析</button>
                     </div>
                     <div class="dc-tags-grid">
                         <div class="dc-chip"><strong>作者:</strong> <span id="valAuthor">${parsed.author}</span></div>
@@ -73,11 +78,11 @@ window.showWhisperCard = function(cardName, defaultText) {
                         <div class="dc-chip"><strong>模型:</strong> <span id="valModel">${parsed.model}</span></div>
                         <div class="dc-chip"><strong>预设:</strong> <span id="valPreset">${parsed.preset}</span></div>
                     </div>
-                    <div class="dc-desc-box" id="valContent">${parsed.content || "暂无介绍..."}</div>
+                    <div class="dc-desc-box" id="valContent">${parsed.content}</div>
                 </div>
                 <div class="dc-footer">
                     <button class="dc-btn-secondary" id="dcCloseBtn">关闭</button>
-                    <button class="dc-btn-primary" id="dcSaveBtn">💾 同步保存到角色</button>
+                    <button class="dc-btn-primary" id="dcSaveBtn">💾 永久存储到本地</button>
                 </div>
             </div>
         </div>
@@ -105,61 +110,35 @@ window.showWhisperCard = function(cardName, defaultText) {
 
     document.getElementById('dcCloseBtn').onclick = () => mask.remove();
     
-    // 点击保存按钮：将整理好的内容同步写入酒馆角色的简介中
+    // 点击永久存储
     document.getElementById('dcSaveBtn').onclick = () => {
-        const author = document.getElementById('valAuthor').innerText;
-        const orient = document.getElementById('valOrient').innerText;
-        const model = document.getElementById('valModel').innerText;
-        const preset = document.getElementById('valPreset').innerText;
-        const content = document.getElementById('valContent').innerText;
-
-        const formattedNewDesc = `作者：${author}\n性向：${orient}\n模型：${model}\n预设：${preset}\n---------\n${content}`;
-
-        // 尝试更新当前选中角色的数据
-        if (window.characters && window.selected_chid !== undefined && window.characters[window.selected_chid]) {
-            window.characters[window.selected_chid].description = formattedNewDesc;
-            toastr.success("已成功同步保存到当前角色档案！");
-        } else {
-            // 兼容备用方案：复制到剪贴板
-            navigator.clipboard.writeText(formattedNewDesc).then(() => {
-                alert("已复制规范排版到剪贴板！可直接粘贴到角色简介中。");
-            });
-        }
+        const dataToSave = {
+            author: document.getElementById('valAuthor').innerText,
+            orientation: document.getElementById('valOrient').innerText,
+            model: document.getElementById('valModel').innerText,
+            preset: document.getElementById('valPreset').innerText,
+            content: document.getElementById('valContent').innerText
+        };
+        localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+        alert("✅ 成功永久存储！下次打开此角色会自动加载。");
         mask.remove();
     };
 };
 
-// 挂载悬浮球
+// 挂载样式与悬浮球入口
 jQuery(() => {
-    if (!document.getElementById('whisperFloatBtn')) {
-        const styleEl = document.createElement('style');
-        styleEl.innerHTML = dcLightStyles;
-        document.head.appendChild(styleEl);
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = dcLightStyles;
+    document.head.appendChild(styleEl);
 
+    if (!document.getElementById('whisperFloatBtn')) {
         const floatBtn = document.createElement('div');
         floatBtn.id = 'whisperFloatBtn';
         floatBtn.className = 'whisper-float-btn';
         floatBtn.innerHTML = '💬';
-        floatBtn.title = '打开 WhisperCard 解析面板';
-        
-        floatBtn.onclick = () => {
-            let currentName = "当前角色卡";
-            let currentDesc = "";
-            
-            // 尝试安全读取当前酒馆聊天的角色信息
-            if (window.characters && window.selected_chid !== undefined && window.characters[window.selected_chid]) {
-                const char = window.characters[window.selected_chid];
-                currentName = char.name || currentName;
-                currentDesc = char.description || char.first_mes || "";
-            } else {
-                currentName = $('.char_name_display').text().trim() || "角色卡";
-                currentDesc = "作者：未知\n模型：通用\n-----\n点击右上方可粘贴原案进行智能解析。";
-            }
-
-            window.showWhisperCard(currentName, currentDesc);
-        };
-
+        floatBtn.title = '打开 WhisperCard 档案库';
+        floatBtn.onclick = () => window.openWhisperCardPanel();
         document.body.appendChild(floatBtn);
     }
-    console.log("[tt-WhisperCard] 完整带保存功能的版本已就绪！");
+    console.log("[tt-WhisperCard] 永久存储版本加载完毕！");
 });
