@@ -1,0 +1,9 @@
+{
+  "display_name": "WhisperCard 角色轻语卡",
+  "loading_order": 1,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "author": "Wenwen",
+  "version": "1.0.0"
+}
