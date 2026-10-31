@@ -45,8 +45,8 @@ function parseDCText(rawText) {
     return info;
 }
 
-// 显示白色 DC 风格弹窗
-function showDCCardModal(cardName, defaultText, onEnterChat) {
+// 显示弹窗
+function showDCCardModal(cardName, defaultText) {
     const parsed = parseDCText(defaultText);
     const modalHtml = `
         <div class="dc-modal-mask" id="dcModalMask">
@@ -69,7 +69,7 @@ function showDCCardModal(cardName, defaultText, onEnterChat) {
                     <div class="dc-desc-box" id="valContent">${parsed.content || "暂无介绍..."}</div>
                 </div>
                 <div class="dc-footer">
-                    <button class="dc-btn-secondary" id="dcCloseBtn">取消</button>
+                    <button class="dc-btn-secondary" id="dcCloseBtn">关闭</button>
                     <button class="dc-btn-primary" id="dcEnterBtn">进入聊天</button>
                 </div>
             </div>
@@ -97,30 +97,34 @@ function showDCCardModal(cardName, defaultText, onEnterChat) {
     };
 
     document.getElementById('dcCloseBtn').onclick = () => mask.remove();
-    document.getElementById('dcEnterBtn').onclick = () => {
-        mask.remove();
-        if (typeof onEnterChat === 'function') onEnterChat();
-    };
+    document.getElementById('dcEnterBtn').onclick = () => mask.remove();
 }
 
-// 自动挂载
+// 自动挂载：监听带有角色选择特征的元素或列表项
 jQuery(() => {
     const styleEl = document.createElement('style');
     styleEl.innerHTML = dcLightStyles;
     document.head.appendChild(styleEl);
 
-    // 监听角色列表项的点击事件
-    $(document).on('click', '.character-select', function() {
-        const index = $(this).attr('chid');
-        if (index !== undefined && window.characters && window.characters[index]) {
-            const char = window.characters[index];
-            const rawDesc = char.description || char.first_mes || "";
-            
-            showDCCardModal(char.name || "角色卡", rawDesc, () => {
-                // 点击进入聊天后的回调
-            });
+    // 扩大监听范围：匹配所有可能包含角色信息的列表项
+    $(document).on('click', '[chid], .character_select, .character-select', function(e) {
+        const index = $(this).attr('chid') || $(this).index();
+        if (window.characters) {
+            // 尝试通过 chid 或当前点击的索引寻找角色数据
+            const char = window.characters[index] || window.characters[$(this).attr('chid')];
+            if (char) {
+                const rawDesc = char.description || char.first_mes || "";
+                showDCCardModal(char.name || "角色卡", rawDesc);
+                return;
+            }
+        }
+        
+        // 如果找不到全局数组，直接弹出一个基础面板用作兜底测试
+        const charName = $(this).text().trim().split('\n')[0] || "角色卡";
+        if (charName.length < 20) {
+            showDCCardModal(charName, "作者：未知\n模型：通用\n-----\n点击了角色：" + charName);
         }
     });
 
-    console.log("[tt-WhisperCard] 专属白底 DC 风格面板已成功激活！");
+    console.log("[tt-WhisperCard] 全能监听挂载完毕！");
 });
