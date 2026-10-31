@@ -1,6 +1,6 @@
 import { extension_settings } from '../../../extensions.js';
 
-// DC Fehér téma stílusok
+// 注入清爽的白色 DC 主题 CSS
 const dcLightStyles = `
     .dc-modal-mask {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -31,7 +31,7 @@ const dcLightStyles = `
     .dc-btn-primary:hover { background: #4752c4; }
     .dc-btn-secondary { background: #e3e5e8; color: #4f545c; border: none; padding: 8px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; }
 
-    /* Fix elem gomb stílus */
+    /* 右下角悬浮球样式 */
     .whisper-fixed-btn {
         position: fixed; bottom: 90px; right: 18px; width: 44px; height: 44px;
         background: #5865f2; color: #ffffff; border-radius: 50%; box-shadow: 0 4px 14px rgba(88,101,242,0.5);
@@ -40,9 +40,9 @@ const dcLightStyles = `
     }
 `;
 
-// Okos elemző logika
+// 智能文本解析逻辑
 function parseDCText(rawText) {
-    const info = { author: 'Ismeretlen', orientation: 'Minden', model: 'Általános', preset: 'Nincs', content: rawText };
+    const info = { author: '未知', orientation: '全向', model: '通用', preset: '无', content: rawText };
     if (!rawText) return info;
     const a = rawText.match(/(?:作者|author)[:：]\s*([^\n]+)/i); if (a) info.author = a[1].trim();
     const o = rawText.match(/(?:性向|orientation)[:：]\s*([^\n]+)/i); if (o) info.orientation = o[1].trim();
@@ -53,9 +53,9 @@ function parseDCText(rawText) {
     return info;
 }
 
-// Modális ablak megjelenítése és helyi mentés
+// 打开面板并支持本地持久化存储
 window.openWhisperCardPanel = function() {
-    let charName = $('.char_name_display').text().trim() || "Karakter";
+    let charName = $('.char_name_display').text().trim() || "当前角色";
     const storageKey = `whisper_card_data_${charName}`;
     
     let savedData = localStorage.getItem(storageKey);
@@ -64,7 +64,7 @@ window.openWhisperCardPanel = function() {
     if (savedData) {
         parsed = JSON.parse(savedData);
     } else {
-        parsed = parseDCText("作者：Ismeretlen\n-----\nKattints a jobb felső gombra az eredeti DC leírás beillesztéséhez!");
+        parsed = parseDCText("作者：未知\n-----\n点击右上角「粘贴DC原案」按钮，开始解析并永久存储！");
     }
 
     const modalHtml = `
@@ -72,24 +72,24 @@ window.openWhisperCardPanel = function() {
             <div class="dc-card-container">
                 <div class="dc-header">
                     <h3>💬 ${charName}</h3>
-                    <button class="dc-btn-parse" id="toggleParseBtn">📋 DC Leírás Beillesztése</button>
+                    <button class="dc-btn-parse" id="toggleParseBtn">📋 粘贴DC原案</button>
                 </div>
                 <div class="dc-body">
                     <div class="dc-parse-box" id="parseBox" style="display:none;">
-                        <textarea id="rawInput" placeholder="Illeszd be ide a szöveget..."></textarea>
-                        <button class="dc-btn-primary" style="padding: 4px; font-size: 12px;" id="applyParseBtn">Feldolgozás</button>
+                        <textarea id="rawInput" placeholder="在此粘贴作者发布的原始文案..."></textarea>
+                        <button class="dc-btn-primary" style="padding: 4px; font-size: 12px;" id="applyParseBtn">立即解析</button>
                     </div>
                     <div class="dc-tags-grid">
-                        <div class="dc-chip"><strong>Szerző:</strong> <span id="valAuthor">${parsed.author}</span></div>
-                        <div class="dc-chip"><strong>Orientáció:</strong> <span id="valOrient">${parsed.orientation}</span></div>
-                        <div class="dc-chip"><strong>Modell:</strong> <span id="valModel">${parsed.model}</span></div>
-                        <div class="dc-chip"><strong>Preset:</strong> <span id="valPreset">${parsed.preset}</span></div>
+                        <div class="dc-chip"><strong>作者:</strong> <span id="valAuthor">${parsed.author}</span></div>
+                        <div class="dc-chip"><strong>性向:</strong> <span id="valOrient">${parsed.orientation}</span></div>
+                        <div class="dc-chip"><strong>模型:</strong> <span id="valModel">${parsed.model}</span></div>
+                        <div class="dc-chip"><strong>预设:</strong> <span id="valPreset">${parsed.preset}</span></div>
                     </div>
                     <div class="dc-desc-box" id="valContent">${parsed.content}</div>
                 </div>
                 <div class="dc-footer">
-                    <button class="dc-btn-secondary" id="dcCloseBtn">Bezárás</button>
-                    <button class="dc-btn-primary" id="dcSaveBtn">💾 Mentés a Karakterhez</button>
+                    <button class="dc-btn-secondary" id="dcCloseBtn">关闭</button>
+                    <button class="dc-btn-primary" id="dcSaveBtn">💾 保存到本地档案</button>
                 </div>
             </div>
         </div>
@@ -117,6 +117,7 @@ window.openWhisperCardPanel = function() {
 
     document.getElementById('dcCloseBtn').onclick = () => mask.remove();
     
+    // 点击保存：把当前数据稳稳存进本地浏览器缓存
     document.getElementById('dcSaveBtn').onclick = () => {
         const dataToSave = {
             author: document.getElementById('valAuthor').innerText,
@@ -126,12 +127,12 @@ window.openWhisperCardPanel = function() {
             content: document.getElementById('valContent').innerText
         };
         localStorage.setItem(storageKey, JSON.stringify(dataToSave));
-        alert("✅ Sikeresen elmentve! Legközelebb automatikusan betöltődik ehhez a karakterhez.");
+        alert("✅ 保存成功！下次切回此角色时会自动加载。");
         mask.remove();
     };
 };
 
-// Betöltés a felületre
+// 挂载右下角悬浮入口
 jQuery(() => {
     const styleEl = document.createElement('style');
     styleEl.innerHTML = dcLightStyles;
