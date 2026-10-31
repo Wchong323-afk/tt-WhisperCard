@@ -16,7 +16,7 @@ const dcLightStyles = `
     }
     @keyframes dcPop { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .dc-header { background: #f2f3f5; padding: 14px 18px; border-bottom: 1px solid #e3e5e8; display: flex; justify-content: space-between; align-items: center; }
-    .dc-header h3 { margin: 0; color: #060607; font-size: 16px; font-weight: 700; }
+    .dc-header h3 { margin: 0; color: #060607; font-size: 16px; font-weight: 700; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dc-btn-parse { background: #e3e5e8; color: #4f545c; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
     .dc-btn-parse:hover { background: #d7dadc; }
     .dc-body { padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
@@ -30,8 +30,6 @@ const dcLightStyles = `
     .dc-btn-primary { flex: 1; background: #5865f2; color: #fff; border: none; padding: 8px; border-radius: 4px; font-weight: 600; font-size: 14px; cursor: pointer; }
     .dc-btn-primary:hover { background: #4752c4; }
     .dc-btn-secondary { background: #e3e5e8; color: #4f545c; border: none; padding: 8px 14px; border-radius: 4px; font-weight: 600; cursor: pointer; }
-
-    /* 右下角悬浮球样式 */
     .whisper-fixed-btn {
         position: fixed; bottom: 90px; right: 18px; width: 44px; height: 44px;
         background: #5865f2; color: #ffffff; border-radius: 50%; box-shadow: 0 4px 14px rgba(88,101,242,0.5);
@@ -53,10 +51,27 @@ function parseDCText(rawText) {
     return info;
 }
 
-// 打开面板并支持本地持久化存储
+// 打开属于【当前正聊天角色】的独立面板
 window.openWhisperCardPanel = function() {
-    let charName = $('.char_name_display').text().trim() || "当前角色";
-    const storageKey = `whisper_card_data_${charName}`;
+    // 优先从酒馆底层获取当前角色的唯一标识 (ID 或名字)
+    let charId = "default_char";
+    let charName = "当前角色";
+
+    if (window.selected_chid !== undefined && window.characters && window.characters[window.selected_chid]) {
+        const currentActiveChar = window.characters[window.selected_chid];
+        charId = currentActiveChar.avatar || currentActiveChar.name || window.selected_chid;
+        charName = currentActiveChar.name || charName;
+    } else {
+        // 备用方案：抓取页面上显示的实时角色名
+        const domName = $('.char_name_display').text().trim() || $('#selected_character_name').text().trim();
+        if (domName) {
+            charName = domName;
+            charId = domName;
+        }
+    }
+
+    // 关键：确保存储的 Key 绑定了该角色的唯一 ID，绝不全局混淆！
+    const storageKey = `whisper_card_v2_${btoa(unescape(encodeURIComponent(charId)))}`;
     
     let savedData = localStorage.getItem(storageKey);
     let parsed;
@@ -64,7 +79,7 @@ window.openWhisperCardPanel = function() {
     if (savedData) {
         parsed = JSON.parse(savedData);
     } else {
-        parsed = parseDCText("作者：未知\n-----\n点击右上角「粘贴DC原案」按钮，开始解析并永久存储！");
+        parsed = parseDCText("作者：未知\n-----\n点击右上角「粘贴DC原案」按钮，为此角色录入专属档案！");
     }
 
     const modalHtml = `
@@ -89,7 +104,7 @@ window.openWhisperCardPanel = function() {
                 </div>
                 <div class="dc-footer">
                     <button class="dc-btn-secondary" id="dcCloseBtn">关闭</button>
-                    <button class="dc-btn-primary" id="dcSaveBtn">💾 保存到本地档案</button>
+                    <button class="dc-btn-primary" id="dcSaveBtn">💾 保存到此角色档案</button>
                 </div>
             </div>
         </div>
@@ -117,7 +132,7 @@ window.openWhisperCardPanel = function() {
 
     document.getElementById('dcCloseBtn').onclick = () => mask.remove();
     
-    // 点击保存：把当前数据稳稳存进本地浏览器缓存
+    // 点击保存：只存入当前这个角色的专属缓存格子里
     document.getElementById('dcSaveBtn').onclick = () => {
         const dataToSave = {
             author: document.getElementById('valAuthor').innerText,
@@ -127,12 +142,12 @@ window.openWhisperCardPanel = function() {
             content: document.getElementById('valContent').innerText
         };
         localStorage.setItem(storageKey, JSON.stringify(dataToSave));
-        alert("✅ 保存成功！下次切回此角色时会自动加载。");
+        alert(`✅ [${charName}] 的专属档案保存成功！`);
         mask.remove();
     };
 };
 
-// 挂载右下角悬浮入口
+// 挂载悬浮按钮
 jQuery(() => {
     const styleEl = document.createElement('style');
     styleEl.innerHTML = dcLightStyles;
