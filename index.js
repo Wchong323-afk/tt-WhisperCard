@@ -1,5 +1,4 @@
-import { extension_settings, renderExtensionTemplateAsync } from '../../../extensions.js';
-import { eventSource, event_types } from '../../../../script.js';
+import { extension_settings } from '../../../extensions.js';
 
 // 注入白色 DC 主题 CSS
 const dcLightStyles = `
@@ -36,6 +35,7 @@ const dcLightStyles = `
 // 智能解析文本逻辑
 function parseDCText(rawText) {
     const info = { author: '未知', orientation: '全向', model: '通用', preset: '无', content: rawText };
+    if (!rawText) return info;
     const a = rawText.match(/(?:作者|author)[:：]\s*([^\n]+)/i); if (a) info.author = a[1].trim();
     const o = rawText.match(/(?:性向|orientation)[:：]\s*([^\n]+)/i); if (o) info.orientation = o[1].trim();
     const m = rawText.match(/(?:模型|model)[:：]\s*([^\n]+)/i); if (m) info.model = m[1].trim();
@@ -46,7 +46,7 @@ function parseDCText(rawText) {
 }
 
 // 显示弹窗函数
-export function showDCCardModal(cardName, defaultText, onEnterChat) {
+function showDCCardModal(cardName, defaultText, onEnterChat) {
     const parsed = parseDCText(defaultText);
     const modalHtml = `
         <div class="dc-modal-mask" id="dcModalMask">
@@ -103,10 +103,25 @@ export function showDCCardModal(cardName, defaultText, onEnterChat) {
     };
 }
 
-// 扩展初始化
+// 自动挂载点击监听
 jQuery(() => {
     const styleEl = document.createElement('style');
     styleEl.innerHTML = dcLightStyles;
     document.head.appendChild(styleEl);
-    console.log("[WhisperCard] 白色风格UI扩展加载完成！");
+
+    // 监听角色卡片点击
+    $(document).on('click', '.character-select', function(e) {
+        const index = $(this).attr('chid');
+        if (index !== undefined && window.characters && window.characters[index]) {
+            const char = window.characters[index];
+            const rawDesc = char.description || char.first_mes || "";
+            
+            // 弹出咱们的白色 DC 界面
+            showDCCardModal(char.name || "角色卡", rawDesc, () => {
+                // 点击“进入聊天”后，继续执行酒馆原本的选中逻辑
+            });
+        }
+    });
+
+    console.log("[WhisperCard] 白色风格UI扩展挂载成功！");
 });
